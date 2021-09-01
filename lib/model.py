@@ -120,7 +120,7 @@ class BaseModel():
                    '%s/netD.pth' % (weight_dir))
 
     ##
-    def train_one_epoch(self):
+    def train_one_epoch(self, writer):
         """ Train the model for one epoch.
         """
 
@@ -139,6 +139,7 @@ class BaseModel():
                 if self.opt.display:
                     counter_ratio = float(epoch_iter) / len(self.dataloader['train'].dataset)
                     self.visualizer.plot_current_errors(self.epoch, counter_ratio, errors)
+                    writer.add_scalars(main_tag="Losses", tag_scalar_dict=dict(errors), global_step=self.epoch+counter_ratio)
 
             if self.total_steps % self.opt.save_image_freq == 0:
                 reals, fakes, fixed = self.get_current_images()
@@ -150,7 +151,7 @@ class BaseModel():
         # self.visualizer.print_current_errors(self.epoch, errors)
 
     ##
-    def train(self):
+    def train(self, writer):
         """ Train the model
         """
 
@@ -163,8 +164,8 @@ class BaseModel():
         print(">> Training model %s." % self.name)
         for self.epoch in range(self.opt.iter, self.opt.niter):
             # Train for one epoch
-            self.train_one_epoch()
-            res = self.test()
+            self.train_one_epoch(writer)
+            res = self.test(writer)
             if res[self.opt.metric] > best_auc:
                 best_auc = res[self.opt.metric]
                 self.save_weights(self.epoch)
@@ -172,7 +173,7 @@ class BaseModel():
         print(">> Training model %s.[Done]" % self.name)
 
     ##
-    def test(self):
+    def test(self, writer):
         """ Test GANomaly model.
 
         Args:
@@ -200,6 +201,8 @@ class BaseModel():
             self.gt_labels = torch.zeros(size=(len(self.dataloader['test'].dataset),), dtype=torch.long,    device=self.device)
             self.latent_i  = torch.zeros(size=(len(self.dataloader['test'].dataset), self.opt.nz), dtype=torch.float32, device=self.device)
             self.latent_o  = torch.zeros(size=(len(self.dataloader['test'].dataset), self.opt.nz), dtype=torch.float32, device=self.device)
+            # dimension of last convolutional layer of discriminator is 256 x 4 x 4
+            self.latent_d  = torch.zeros(size=(len(self.dataloader['test'].dataset), 256, 4, 4), dtype=torch.float32, device=self.device)
 
             # print("   Testing model %s." % self.name)
             self.times = []
@@ -211,7 +214,7 @@ class BaseModel():
                 time_i = time.time()
                 self.set_input(data)
                 self.fake, latent_i, latent_o = self.netg(self.input)
-
+                classifier, latent_d = self.netd(self.input)
                 error = torch.mean(torch.pow((latent_i-latent_o), 2), dim=1)
                 time_o = time.time()
 
@@ -219,6 +222,7 @@ class BaseModel():
                 self.gt_labels[i*self.opt.batchsize : i*self.opt.batchsize+error.size(0)] = self.gt.reshape(error.size(0))
                 self.latent_i [i*self.opt.batchsize : i*self.opt.batchsize+error.size(0), :] = latent_i.reshape(error.size(0), self.opt.nz)
                 self.latent_o [i*self.opt.batchsize : i*self.opt.batchsize+error.size(0), :] = latent_o.reshape(error.size(0), self.opt.nz)
+                self.latent_d [i*self.opt.batchsize : i*self.opt.batchsize+error.size(0), :, :, :] = latent_d
 
                 self.times.append(time_o - time_i)
 
@@ -228,8 +232,8 @@ class BaseModel():
                     if not os.path.isdir(dst):
                         os.makedirs(dst)
                     real, fake, _ = self.get_current_images()
-                    vutils.save_image(real, '%s/real_%03d.eps' % (dst, i+1), normalize=True)
-                    vutils.save_image(fake, '%s/fake_%03d.eps' % (dst, i+1), normalize=True)
+                    vutils.save_image(real, '%s/real_%03d.png' % (dst, i+1), normalize=True)
+                    vutils.save_image(fake, '%s/fake_%03d.png' % (dst, i+1), normalize=True)
 
             # Measure inference time.
             self.times = np.array(self.times)
@@ -242,8 +246,15 @@ class BaseModel():
             performance = OrderedDict([('Avg Run Time (ms/batch)', self.times), (self.opt.metric, auc)])
 
             if self.opt.display_id > 0 and self.opt.phase == 'test':
+                writer.add_embedding(tag='Discriminator Feature', mat=torch.flatten(self.latent_d, start_dim=1), metadata=self.gt_labels, global_step=self.epoch)
+                writer.add_histogram(tag='Anomaly scores', global_step=self.epoch, values=self.an_scores, bins=50)
+                writer.add_scalar("AUC/test", auc, self.epoch)
+
                 counter_ratio = float(epoch_iter) / len(self.dataloader['test'].dataset)
                 self.visualizer.plot_performance(self.epoch, counter_ratio, performance)
+                
+                # plot distribution of an_score (anomaly score):
+                self.visualizer.plot_anomaly_histrogram(self.epoch, counter_ratio, self.an_scores, self.gt_labels)
             return performance
 
 ##
@@ -280,7 +291,7 @@ class Ganomaly(BaseModel):
         self.l_adv = l2_loss
         self.l_con = nn.L1Loss()
         self.l_enc = l2_loss
-        self.l_bce = nn.BCELoss()
+        self.l_bce = nn.BCELoss() # discriminator loss
 
         ##
         # Initialize input tensors.

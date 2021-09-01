@@ -8,6 +8,7 @@ Returns:
 import os
 import time
 import numpy as np
+from numpy.core.numeric import NaN
 import torchvision.utils as vutils
 
 ##
@@ -87,7 +88,8 @@ class Visualizer():
                 'xlabel': 'Epoch',
                 'ylabel': 'Loss'
             },
-            win=4
+            win=4,
+            env=self.name
         )
 
     ##
@@ -112,9 +114,39 @@ class Visualizer():
                 'xlabel': 'Epoch',
                 'ylabel': 'Stats'
             },
-            win=5
+            win=5,
+            env=self.name
         )
+        
+    ##
+    def plot_anomaly_histrogram(self, epoch, counter_ratio, an_scores, gt_labels):
+        normal_scores = [an_scores[idx].cpu() for idx, label in enumerate(gt_labels) if label == 0]
+        abnormal_scores = [an_scores[idx].cpu() for idx, label in enumerate(gt_labels) if label == 1]
+        # resize both to equal
+        import numpy as np
+        import torch
+        import statistics as st
+        length = max(len(normal_scores), len(abnormal_scores))
+        normal_scores = normal_scores + [torch.tensor(st.median(normal_scores))]*(len(normal_scores)-length)
+        abnormal_scores = abnormal_scores + [torch.tensor(st.median(abnormal_scores))]*(length-len(abnormal_scores))
 
+        self.vis.boxplot(X=np.stack([normal_scores, abnormal_scores], 1), 
+                        opts={'numbin': 50,
+                              'legend': ['normal', 'abnormal'],
+                              'ylabel': 'anomaly score'},
+                        win=6, 
+                        env=self.name)
+        
+                        #     opts={'numbin': 500,
+                        #         'title': self.name + 'Histogram Anomaly Score',
+                        #         'legend': self.plot_res['legend'],
+                        #         'xlabel': 'Epoch',
+                        #         'ylabel': 'Count'}
+                        #    ) 
+                        
+    def plot_tsne_embedding(self, epoch, counter_ratio, embeddings, gt_labels):
+        self.vis.embedding()
+        
     ##
     def print_current_errors(self, epoch, errors):
         """ Print current errors.
@@ -165,9 +197,9 @@ class Visualizer():
         fakes = self.normalize(fakes.cpu().numpy())
         fixed = self.normalize(fixed.cpu().numpy())
 
-        self.vis.images(reals, win=1, opts={'title': 'Reals'})
-        self.vis.images(fakes, win=2, opts={'title': 'Fakes'})
-        self.vis.images(fixed, win=3, opts={'title': 'Fixed'})
+        self.vis.images(reals, win=1, opts={'title': 'Reals'}, env=self.name)
+        self.vis.images(fakes, win=2, opts={'title': 'Fakes'}, env=self.name)
+        self.vis.images(fixed, win=3, opts={'title': 'Fixed'}, env=self.name)
 
     def save_current_images(self, epoch, reals, fakes, fixed):
         """ Save images for epoch i.

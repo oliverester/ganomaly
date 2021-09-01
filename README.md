@@ -126,3 +126,10 @@ If you use this repository or would like to refer the paper, please use the foll
 
 ## 6. Reference
 [1]  Akcay S., Atapour-Abarghouei A., Breckon T.P. (2019) GANomaly: Semi-supervised Anomaly Detection via Adversarial Training. In: Jawahar C., Li H., Mori G., Schindler K. (eds) Computer Vision – ACCV 2018. ACCV 2018. Lecture Notes in Computer Science, vol 11363. Springer, Cham
+
+## 7. Hints
+Use 
+```
+ssh -L 8097:127.0.0.1:8097 oester@GPU3
+```
+to forward Visdom port onto your local machine

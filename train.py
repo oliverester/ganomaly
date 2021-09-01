@@ -20,12 +20,13 @@ from __future__ import print_function
 from options import Options
 from lib.data import load_data
 from lib.model import Ganomaly
+from torch.utils.tensorboard import SummaryWriter
 
 ##
 def train():
     """ Training
     """
-
+    writer = SummaryWriter()
     ##
     # ARGUMENTS
     opt = Options().parse()
@@ -37,7 +38,8 @@ def train():
     model = Ganomaly(opt, dataloader)
     ##
     # TRAIN MODEL
-    model.train()
+    model.train(writer)
+    writer.close();
 
 if __name__ == '__main__':
     train()

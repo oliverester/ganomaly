@@ -26,13 +26,13 @@ class Options():
 
         ##
         # Base
-        self.parser.add_argument('--dataset', default='cifar10', help='folder | cifar10 | mnist ')
+        self.parser.add_argument('--dataset', default='mnist', help='folder | cifar10 | mnist ')
         self.parser.add_argument('--dataroot', default='', help='path to dataset')
         self.parser.add_argument('--batchsize', type=int, default=64, help='input batch size')
         self.parser.add_argument('--workers', type=int, help='number of data loading workers', default=8)
         self.parser.add_argument('--droplast', action='store_true', default=True, help='Drop last batch size.')
         self.parser.add_argument('--isize', type=int, default=32, help='input image size.')
-        self.parser.add_argument('--nc', type=int, default=3, help='input image channels')
+        self.parser.add_argument('--nc', type=int, default=1, help='input image channels')
         self.parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
         self.parser.add_argument('--ngf', type=int, default=64)
         self.parser.add_argument('--ndf', type=int, default=64)
@@ -44,11 +44,11 @@ class Options():
         self.parser.add_argument('--model', type=str, default='ganomaly', help='chooses which model to use. ganomaly')
         self.parser.add_argument('--display_server', type=str, default="http://localhost", help='visdom server of the web display')
         self.parser.add_argument('--display_port', type=int, default=8097, help='visdom port of the web display')
-        self.parser.add_argument('--display_id', type=int, default=0, help='window id of the web display')
-        self.parser.add_argument('--display', action='store_true', help='Use visdom.')
+        self.parser.add_argument('--display_id', type=int, default=1, help='window id of the web display')
+        self.parser.add_argument('--display', default=1, action='store_true', help='Use visdom.')
         self.parser.add_argument('--outf', default='./output', help='folder to output images and model checkpoints')
         self.parser.add_argument('--manualseed', default=-1, type=int, help='manual seed')
-        self.parser.add_argument('--abnormal_class', default='car', help='Anomaly class idx for mnist and cifar datasets')
+        self.parser.add_argument('--abnormal_class', default=5, help='Anomaly class idx for mnist and cifar datasets')
         self.parser.add_argument('--proportion', type=float, default=0.1, help='Proportion of anomalies in test set.')
         self.parser.add_argument('--metric', type=str, default='roc', help='Evaluation metric.')
 
@@ -56,7 +56,7 @@ class Options():
         # Train
         self.parser.add_argument('--print_freq', type=int, default=100, help='frequency of showing training results on console')
         self.parser.add_argument('--save_image_freq', type=int, default=100, help='frequency of saving real and fake images')
-        self.parser.add_argument('--save_test_images', action='store_true', help='Save test images for demo.')
+        self.parser.add_argument('--save_test_images', default=True, action='store_true', help='Save test images for demo.')
         self.parser.add_argument('--load_weights', action='store_true', help='Load the pretrained weights')
         self.parser.add_argument('--resume', default='', help="path to checkpoints (to continue training)")
         self.parser.add_argument('--phase', type=str, default='train', help='train, val, test, etc')
@@ -98,6 +98,9 @@ class Options():
         # save to the disk
         if self.opt.name == 'experiment_name':
             self.opt.name = "%s/%s" % (self.opt.model, self.opt.dataset)
+        else:
+            self.opt.name = "%s/%s" % (self.opt.model, self.opt.name)
+            
         expr_dir = os.path.join(self.opt.outf, self.opt.name, 'train')
         test_dir = os.path.join(self.opt.outf, self.opt.name, 'test')
 
